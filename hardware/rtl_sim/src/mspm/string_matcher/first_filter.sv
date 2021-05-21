@@ -110,6 +110,8 @@ wire [12:0] addr31;
 wire [63:0] q31;
 wire [127:0] temp_st31;
 
+// addr: 13bit, temp_st: 128bit, q: 64bit， in_data: 256bit
+
 reg [255:0] in_reg;
 reg in_valid_reg;
 wire [127:0] temp_low;
@@ -130,7 +132,9 @@ reg last_r;
 reg [255:0] mask;
 reg [8:0] shift;
 
-assign addr0 = in_reg[0*8+12:0*8];
+// this part means the input data is the address??? sure use the super character to index the sh-mask 
+// match_table stores the shift mask of each character??
+assign addr0 = in_reg[0*8+12:0*8]; // why addr overlap? say addr0=in_reg[12:0], addr1=in_reg[20:8]: the super character 8+5 bits
 assign addr1 = in_reg[1*8+12:1*8];
 assign addr2 = in_reg[2*8+12:2*8];
 assign addr3 = in_reg[3*8+12:3*8];
@@ -163,7 +167,9 @@ assign addr29 = in_reg[29*8+12:29*8];
 assign addr30 = in_reg[30*8+12:30*8];
 assign addr31 = last ? {5'b0,in_reg[(31+1)*8-1:31*8]} : {in_data[4:0],in_reg[(31+1)*8-1:31*8]};
 
-assign temp_st0 = q0 << 0*8;
+// I think this part means the imput's length is 32. the following code is the preshift operation
+assign temp_st0 = q0 << 0*8; // q1 q2 are the output of the ROM's addr1 addr2, hence the corresponding sh-masks
+// << k * 8: keeps k the number of character processed modulo 8
 assign temp_st1 = q1 << 1*8;
 assign temp_st2 = q2 << 2*8;
 assign temp_st3 = q3 << 3*8;
@@ -171,6 +177,7 @@ assign temp_st4 = q4 << 4*8;
 assign temp_st5 = q5 << 5*8;
 assign temp_st6 = q6 << 6*8;
 assign temp_st7 = q7 << 7*8;
+
 assign temp_st8 = q8 << 0*8;
 assign temp_st9 = q9 << 1*8;
 assign temp_st10 = q10 << 2*8;
@@ -179,6 +186,7 @@ assign temp_st12 = q12 << 4*8;
 assign temp_st13 = q13 << 5*8;
 assign temp_st14 = q14 << 6*8;
 assign temp_st15 = q15 << 7*8;
+
 assign temp_st16 = q16 << 0*8;
 assign temp_st17 = q17 << 1*8;
 assign temp_st18 = q18 << 2*8;
@@ -187,6 +195,7 @@ assign temp_st20 = q20 << 4*8;
 assign temp_st21 = q21 << 5*8;
 assign temp_st22 = q22 << 6*8;
 assign temp_st23 = q23 << 7*8;
+
 assign temp_st24 = q24 << 0*8;
 assign temp_st25 = q25 << 1*8;
 assign temp_st26 = q26 << 2*8;
@@ -196,7 +205,7 @@ assign temp_st29 = q29 << 5*8;
 assign temp_st30 = q30 << 6*8;
 assign temp_st31 = q31 << 7*8;
 
-
+// temp_st 128bit, 64bit mask || 64bit significant bits 
 
 assign temp_low = temp_st0|temp_st1|temp_st2|temp_st3|temp_st4|temp_st5|temp_st6|temp_st7;     
 assign temp_high = temp_st8|temp_st9|temp_st10|temp_st11|temp_st12|temp_st13|temp_st14|temp_st15;     
@@ -224,7 +233,7 @@ always @ (posedge clk) begin
     //end
 
     if(last)begin
-        mask <= {256{1'b1}} << shift;
+        mask <= {256{1'b1}} << shift; // 256bit 0b00....01 shift left
     end else begin
         mask <= 0;
     end
@@ -248,7 +257,7 @@ always @ (posedge clk) begin
 
     //state update
     if(in_valid & in_sop)begin
-        state <= 64'h0003070f1f3f7fff;
+        state <= 64'h0003070f1f3f7fff; // magic num?
         //The boudary bytes should not generate matches
         //by themselves
         //state <= {64{1'b1}};
@@ -261,16 +270,17 @@ always @ (posedge clk) begin
     in_reg <= in_data;
 end
 
+// match_table stores pattern
 rom_2port_noreg #(
-	.DWIDTH(64),
-	.AWIDTH(13),
+	.DWIDTH(64), // data width
+	.AWIDTH(13), // address width
 	.MEM_SIZE(8192),
 	.INIT_FILE("./src/memory_init/match_table.mif")
 )
 match_table_0 (
-	.q_a       (q0),    
+	.q_a       (q0), // Data output from port A of the memory
 	.q_b       (q1),    
-	.address_a (addr0),
+	.address_a (addr0), //  Address input to port A of the memory.
 	.address_b (addr1),
 	.clock     (clk)   
 );
